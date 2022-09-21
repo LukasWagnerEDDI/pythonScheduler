@@ -2,35 +2,35 @@
 
   {
     "id": 1,
-    "creationTime": "092012352022",
+    "creation_time": "092012352022",
     "cron_expression": "* * * * *",
     "version": 0,
-    "lastUpdate": "092012352022",
-    "lastRunTime": "092012352022",
-    "runScript": "",
-    "uploadedFile": "",
+    "last_update": "092012352022",
+    "last_run_time": "092012352022",
+    "run_script": "",
+    "uploaded_file": "",
     "status": "requested"
   },
   {
     "id": 2,
-    "creationTime": "092012352022",
+    "creation_time": "092012352022",
     "cron_expression": "* * * * *",
     "version": 0,
-    "lastUpdate": "092012352022",
-    "lastRunTime": "092012352022",
-    "runScript": "createEmptyJson.py",
-    "uploadedFile": "",
+    "last_update": "092012352022",
+    "last_run_time": "092012352022",
+    "run_script": "",
+    "uploaded_file": "createEmptyJson.py",
     "status": "requested"
   },
   {
     "id": 3,
-    "creationTime": "092012352022",
+    "creation_time": "092012352022",
     "cron_expression": "* * * * *",
     "version": 0,
-    "lastUpdate": "092012352022",
-    "lastRunTime": "092012352022",
-    "runScript": "",
-    "uploadedFile": "throwError.py",
+    "last_update": "092012352022",
+    "last_run_time": "092012352022",
+    "run_script": "",
+    "uploaded_file": "throwError.py",
     "status": "requested"
   }
 ]

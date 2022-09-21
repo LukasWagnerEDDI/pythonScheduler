@@ -74,8 +74,7 @@ def execute_job(job):
 		exec(open(job["runScript"]).read())
 
 
-def increase_job_status(job_id):
-	
+"""def increase_job_status(job_id):"""
 
 
 def set_job_status(job_id, status):
@@ -83,13 +82,11 @@ def set_job_status(job_id, status):
 
 
 def adjust_job_property(job_id, property_name, value):
-	job_index = 0
+	jobs_l = {}
 	"""retrieve most recent job list"""
 	jobs_l = retrieve_jobs_to_schedule()
-	"""set index for job (job no. starts from 1)"""
-	job_index = int(job_id) - 1
 	"""set new value and save the json"""
-	jobs_l[job_index][property_name] = value
+	jobs_l[job_id][property_name] = value
 	f = open("jobs.json", "w")
 	json.dump(jobs_l, f)
 	f.close()
@@ -112,7 +109,7 @@ scheduler = BackgroundScheduler(timezone=utc)
 """start every x time interval to process jobs"""
 scheduler.add_job(lambda: schedule_jobs(scheduler), 'interval', seconds=5, next_run_time=datetime.utcnow(), id='scheduler-job-id')
 """Listener for specified events"""
-scheduler.add_listener(errorListener, EVENT_JOB_ERROR)
+scheduler.add_listener(error_listener, EVENT_JOB_ERROR)
 scheduler.start()
 
 input()
