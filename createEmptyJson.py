@@ -1,2 +1,5 @@
+import sys
+
 if __name__ == '__main__':
-	open('emptyFile.json', 'w')
+
+	open(f'{sys.argv[1]}.json', 'w')

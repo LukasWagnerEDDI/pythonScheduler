@@ -5,7 +5,7 @@ from pytz import utc
 from datetime import datetime
 import json
 import dateConversion
-import subprocess
+import subprocess, os
 
 scheduled_jobs_map = {}
 
@@ -20,9 +20,9 @@ def schedule_jobs(scheduler_l):
 			continue
 
 		"""add new job to schedule"""
-		add_job_if_applicable(job, scheduler)
+		add_job_if_applicable(job, scheduler_l)
 		"""update edited job - checking for different job version"""
-		update_job_if_applicable(job, scheduler)
+		update_job_if_applicable(job, scheduler_l)
 
 	print("refreshed scheduled jobs")
 
@@ -40,7 +40,7 @@ def add_job_if_applicable(job, scheduler_l):
 		"""add job to job list cache"""
 		scheduled_jobs_map[job_id] = job
 		"""add job to schedule as cron tab"""
-		scheduler.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
+		scheduler_l.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
 
 		print("added job with id: " + str(job_id))
 
@@ -59,8 +59,8 @@ def update_job_if_applicable(job, scheduler_l):
 		"""refresh job in cache"""
 		scheduled_jobs_map[job_id] = job
 		"""add refreshed job to schedule"""
-		scheduler.remove_job(job_id)
-		scheduler.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
+		scheduler_l.remove_job(job_id)
+		scheduler_l.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
 		print("updated job with id: " + str(job_id))
 
 
@@ -74,12 +74,14 @@ def reschedule_job(job_id, epoch_time):
 
 def restart_job(job_id):
 	jobs_l = retrieve_jobs_to_schedule()
+	set_job_status(get_index_for_job_id(jobs_l, job_id), "requested")
 
 
 def get_index_for_job_id(job_list, job_id):
 	for index, job in enumerate(job_list):
 		if job["id"] == job_id:
 			return index
+
 
 def execute_job(job):
 	print("executing job with id: " + str(job['id']))
@@ -89,10 +91,18 @@ def execute_job(job):
 	set_job_status(job["id"], "running")
 	"""run specified script"""
 	if '' != job["run_script"]:
-		if job["uploaded_file"] != "":
-			subprocess.call(job["run_script"] + " " + job["uploaded_file"])
+		script_directory_path = os.path.dirname(os.path.abspath(job["run_script"]))
+		if len(job["script_parameters"]) != 0:
+			parameter_string = ""
+			for parameter in job["script_parameters"]:
+				if parameter_string == "":
+					parameter_string = parameter
+				else:
+					parameter_string += ", " + parameter
+			print(f' cd "{script_directory_path}\\"; .\\{job["run_script"]} {parameter_string}')
+			p = subprocess.run(f' cd "{script_directory_path}\\"; .\\{job["run_script"]} {parameter_string}', shell=True, errors=True)
 		else:
-			subprocess.call(job["run_script"])
+			p = subprocess.run(f'.\\"{script_directory_path}\\"', shell=True, errors=True)
 
 	"""set finished or success status"""
 	jobs_l = retrieve_jobs_to_schedule()
@@ -101,6 +111,7 @@ def execute_job(job):
 		set_job_status(job["id"], "success")
 	else:
 		set_job_status(job["id"], "finished")
+
 
 def set_job_status(job_id, status):
 	adjust_job_property(job_id, 'status', status)
@@ -126,7 +137,6 @@ def adjust_job_property(job_id, property_name, value):
 	f.close()
 
 	"""refresh job in cache"""
-	print(scheduled_jobs_map)
 	if str(scheduled_jobs_map.get(job_id)) != str(jobs_l[job_index]):
 		scheduled_jobs_map[job_id] = jobs_l[job_index]
 
