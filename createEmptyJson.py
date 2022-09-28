@@ -1,5 +1,5 @@
 import sys
 
 if __name__ == '__main__':
-
-	open(f'{sys.argv[1]}.json', 'w')
+	parameter_dict = sys.argv[1]
+	open(f'{parameter_dict["file_name"]}.json', 'w')

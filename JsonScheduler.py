@@ -7,7 +7,7 @@ from datetime import datetime
 import json
 import dateConversion
 import subprocess
-import sys
+import argparse, sys
 
 scheduled_jobs_map = {}
 
@@ -91,6 +91,9 @@ def remove_job(job_id, scheduler_p):
 	if job_id == "scheduler-job-id":
 		return
 
+	if not scheduler_p.get_job(job_id) and (job_id not in scheduled_jobs_map):
+		return
+
 	"""remove job from scheduler"""
 	job_id = int(job_id)
 	if scheduler_p.get_job(job_id):
@@ -125,9 +128,15 @@ def execute_job(job):
 	if '' != job["run_script"]:
 		"""create list of given parameters"""
 		if len(job["script_parameters"]) != 0:
-			parameter_list = job["script_parameters"]
-			parameter_list.insert(0, job['run_script'])
-			sys.argv = parameter_list
+			"""parser = argparse.ArgumentParser()
+			parameter_dict = job["script_parameters"]
+			param_keys = list(parameter_dict)
+			for key in param_keys:
+				parser.add_argument(key, parameter_dict[key])
+
+			args = parser.parse_args()"""
+			parameter_dict = job["script_parameters"]
+			sys.argv = (job['run_script'], parameter_dict)
 
 		exec(open(job["run_script"]).read())
 
