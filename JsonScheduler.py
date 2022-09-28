@@ -1,28 +1,34 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
 from pytz import utc
 from datetime import datetime
 import json
 import dateConversion
-import subprocess, os
+import subprocess
+import sys
 
 scheduled_jobs_map = {}
 
 
-def schedule_jobs(scheduler_l):
+def schedule_jobs(scheduler_p):
 	"""retrieve jobs from jobs.json file"""
 	jobs = retrieve_jobs_to_schedule()
 
 	for job in jobs:
+		if job['id'] == "scheduler-job-id":
+			continue
+
 		"""skip finished job"""
 		if job["status"] in ["finished", "error"]:
+			remove_job(job['id'], scheduler_p)
 			continue
 
 		"""add new job to schedule"""
-		add_job_if_applicable(job, scheduler_l)
+		add_job_if_applicable(job, scheduler_p)
 		"""update edited job - checking for different job version"""
-		update_job_if_applicable(job, scheduler_l)
+		update_job_if_applicable(job, scheduler_p)
 
 	print("refreshed scheduled jobs")
 
@@ -34,18 +40,19 @@ def retrieve_jobs_to_schedule():
 	return d
 
 
-def add_job_if_applicable(job, scheduler_l):
+def add_job_if_applicable(job, scheduler_p):
 	job_id = str(job['id'])
 	if job_id not in scheduled_jobs_map:
 		"""add job to job list cache"""
 		scheduled_jobs_map[job_id] = job
-		"""add job to schedule as cron tab"""
-		scheduler_l.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
+		"""add job to schedule"""
+		"""scheduler.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)"""
+		add_job(job, scheduler_p)
 
 		print("added job with id: " + str(job_id))
 
 
-def update_job_if_applicable(job, scheduler_l):
+def update_job_if_applicable(job, scheduler_p):
 	job_id = str(job['id'])
 	"""job can only be updated if it already exists"""
 	if job_id not in scheduled_jobs_map:
@@ -59,17 +66,43 @@ def update_job_if_applicable(job, scheduler_l):
 		"""refresh job in cache"""
 		scheduled_jobs_map[job_id] = job
 		"""add refreshed job to schedule"""
-		scheduler_l.remove_job(job_id)
-		scheduler_l.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression'], timezone='UTC'), id=job_id)
+		scheduler.remove_job(job_id)
+		add_job(job, scheduler_p)
 		print("updated job with id: " + str(job_id))
 
 
+def add_job(job, scheduler_p):
+	if job['cron_expression'] != '':
+		scheduler_p.add_job(lambda: execute_job(job), CronTrigger.from_crontab(job['cron_expression']), id=str(job['id']), coalesce=True, misfire_grace_time=86400)
+	elif job['execution_datetime'] != '':
+		scheduler_p.add_job(lambda: execute_job(job), DateTrigger(dateConversion.initialize_datetime_from_string(job['execution_datetime']), timezone='UTC'), id=str(job['id']), coalesce=True, misfire_grace_time=86400)
+
+
 def reschedule_job(job_id, epoch_time):
-	jobs = retrieve_jobs_to_schedule()
+	jobs_l = retrieve_jobs_to_schedule()
 	new_cron_expression = dateConversion.convert_epoch_to_cron_expression(epoch_time)
-	if jobs[job_id]["cron_expression"] != new_cron_expression:
+	if jobs_l[get_index_for_job_id(jobs_l, job_id)]["cron_expression"] != new_cron_expression:
 		adjust_job_property(job_id, "cron_expression", new_cron_expression)
 		set_job_status(job_id, "requested")
+		print(f'job {job_id} was rescheduled: ')
+
+
+def remove_job(job_id, scheduler_p):
+	if job_id == "scheduler-job-id":
+		return
+
+	"""remove job from scheduler"""
+	job_id = int(job_id)
+	if scheduler_p.get_job(job_id):
+		scheduler_p.remove_job(job_id)
+	"""remove job from cached jobs"""
+	if job_id in scheduled_jobs_map:
+		scheduled_jobs_map.pop(job_id)
+
+	"""print removed job incl. status"""
+	if not scheduler_p.get_job(job_id) and (job_id not in scheduled_jobs_map):
+		jobs_l = retrieve_jobs_to_schedule()
+		print(f'removed job from schedule: id={job_id} status={jobs_l[get_index_for_job_id(jobs_l, job_id)]["status"]}')
 
 
 def restart_job(job_id):
@@ -79,7 +112,7 @@ def restart_job(job_id):
 
 def get_index_for_job_id(job_list, job_id):
 	for index, job in enumerate(job_list):
-		if job["id"] == job_id:
+		if job['id'] == job_id:
 			return index
 
 
@@ -89,25 +122,19 @@ def execute_job(job):
 	"""set readable run timestamp"""
 	refresh_run_timestamp(job["id"])
 	set_job_status(job["id"], "running")
-	"""run specified script"""
 	if '' != job["run_script"]:
-		script_directory_path = os.path.dirname(os.path.abspath(job["run_script"]))
+		"""create list of given parameters"""
 		if len(job["script_parameters"]) != 0:
-			parameter_string = ""
-			for parameter in job["script_parameters"]:
-				if parameter_string == "":
-					parameter_string = parameter
-				else:
-					parameter_string += ", " + parameter
-			print(f' cd "{script_directory_path}\\"; .\\{job["run_script"]} {parameter_string}')
-			p = subprocess.run(f' cd "{script_directory_path}\\"; .\\{job["run_script"]} {parameter_string}', shell=True, errors=True)
-		else:
-			p = subprocess.run(f'.\\"{script_directory_path}\\"', shell=True, errors=True)
+			parameter_list = job["script_parameters"]
+			parameter_list.insert(0, job['run_script'])
+			sys.argv = parameter_list
+
+		exec(open(job["run_script"]).read())
 
 	"""set finished or success status"""
 	jobs_l = retrieve_jobs_to_schedule()
 	job_index = get_index_for_job_id(jobs_l, job['id'])
-	if jobs_l[job_index]["repeat"] == "true":
+	if jobs_l[job_index]["cron_expression"] != "":
 		set_job_status(job["id"], "success")
 	else:
 		set_job_status(job["id"], "finished")
@@ -118,6 +145,9 @@ def set_job_status(job_id, status):
 
 
 def adjust_job_property(job_id, property_name, value):
+	if job_id == "scheduler-job-id":
+		return
+
 	job_index = 0
 	"""retrieve most recent job list"""
 	jobs_l = retrieve_jobs_to_schedule()
@@ -153,13 +183,11 @@ def error_listener(event):
 	set_job_status(event.job_id, 'error')
 
 
-def execution_listener(event):
+def missed_job_listener(event):
 	if event.job_id == "scheduler-job-id":
 		return
 
-
-"""def missed_job_listener(event):
-	reschedule_job()"""
+	print(f'job {event.job_id} wurde verpasst')
 
 
 """create Scheduler"""
@@ -168,8 +196,8 @@ scheduler = BackgroundScheduler(timezone=utc)
 scheduler.add_job(lambda: schedule_jobs(scheduler), 'interval', seconds=5, next_run_time=datetime.utcnow(), id='scheduler-job-id')
 """Listener for specified events"""
 scheduler.add_listener(error_listener, EVENT_JOB_ERROR)
-scheduler.add_listener(execution_listener, EVENT_JOB_EXECUTED)
-scheduler.add_listener(execution_listener, EVENT_JOB_MISSED)
+"""scheduler.add_listener(execution_listener, EVENT_JOB_EXECUTED)"""
+scheduler.add_listener(missed_job_listener, EVENT_JOB_MISSED)
 """start scheduler"""
 scheduler.start()
 

@@ -1,1 +1,56 @@
-[{"id": 1, "creation_time": "092012352022", "cron_expression": "* * * * *", "version": 0, "last_update": "2022-09-26 12:51:00.039818", "last_execution_time": "2022-09-26 11:44:03.293194", "run_script": "", "script_parameters": [], "repeat": "false", "status": "finished"}, {"id": 2, "creation_time": "092012352022", "cron_expression": "* * * * *", "version": 0, "last_update": "2022-09-26 13:00:00.028422", "last_execution_time": "2022-09-26 11:44:03.293194", "run_script": "", "script_parameters": [], "repeat": "true", "status": "finished"}, {"id": 3, "creation_time": "092012352022", "cron_expression": "* * * * *", "version": 1, "last_update": "2022-09-26 14:51:00.061826", "last_execution_time": "2022-09-26 14:51:00.013955", "run_script": "createEmptyJson.py", "script_parameters": ["emptyJson"], "repeat": "false", "status": "finished"}, {"id": 4, "creation_time": "092012352022", "cron_expression": "* * * * *", "version": 0, "last_update": "2022-09-26 14:11:00.062223", "last_execution_time": "2022-09-26 14:05:00.010268", "run_script": "timer.py", "script_parameters": [], "repeat": "false", "status": "finished"}]
+[
+  {
+    "id": 1,
+    "version": 0,
+    "creation_time": "092012352022",
+    "cron_expression": "* * * * *",
+    "execution_datetime": "",
+    "last_update": "2022-09-28 10:50:00.042335",
+    "last_execution_time": "2022-09-28 10:04:00.005955",
+    "next_execution_time": "2022-09-26 12:51",
+    "run_script": "",
+    "script_parameters": [],
+    "status": "requested"
+  },
+  {
+    "id": 2,
+    "version": 2,
+    "creation_time": "092012352022",
+    "cron_expression": "",
+    "execution_datetime": "2022-09-27 16:43:00",
+    "last_update": "2022-09-28 10:49:06.395073",
+    "last_execution_time": "2022-09-26 11:44:03.293194",
+    "next_execution_time": "2022-09-26 12:51",
+    "run_script": "",
+    "script_parameters": [],
+    "status": "requested"
+  },
+  {
+    "id": 3,
+    "version": 1,
+    "creation_time": "092012352022",
+    "cron_expression": "",
+    "execution_datetime": "2022-09-27 16:43:00",
+    "last_update": "2022-09-28 10:49:06.405905",
+    "last_execution_time": "2022-09-28 10:49:06.366658",
+    "next_execution_time": "2022-09-26 12:51",
+    "run_script": "createEmptyJson.py",
+    "script_parameters": [
+      "empty"
+    ],
+    "status": "requested"
+  },
+  {
+    "id": 4,
+    "version": 1,
+    "creation_time": "092012352022",
+    "cron_expression": "* * * * *",
+    "execution_datetime": "2022-09-26 12:51:00",
+    "last_update": "2022-09-28 10:50:00.035342",
+    "last_execution_time": "2022-09-28 10:50:00.017853",
+    "next_execution_time": "2022-09-26 12:51",
+    "run_script": "timer.py",
+    "script_parameters": [],
+    "status": "running"
+  }
+]
