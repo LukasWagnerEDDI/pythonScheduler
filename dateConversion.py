@@ -13,6 +13,7 @@ def convert_datetime_to_epoch(datetime_l):
 	"""YYyy-MM-DD HH:MM"""
 	if isinstance(datetime_l, str):
 		datetime_l = initialize_datetime_from_string(datetime_l)
+	
 	return int(datetime_l.timestamp())
 
 
