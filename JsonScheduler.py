@@ -16,7 +16,10 @@ def missed_job_listener(event):
 	if event.job_id == "scheduler-job-id":
 		return
 
-	print(f'job {event.job_id} wurde verpasst')
+	print(f'job {event.job_id} was missed')
+	if scheduler.get_job(job_id=event.job_id):
+		job = scheduler.get_job(job_id=event.job_id)
+		print(f'next execution: {job.next_run_time}')
 
 
 """def execution_listener(events):
