@@ -13,7 +13,11 @@ def error_listener(event):
 	print(f'Job {event.job_id} raised {event.exception.__class__.__name__}')
 
 	"""set job status to error"""
+<<<<<<< HEAD
 	#jobMgmt.set_job_status(event.job_id, 'error')
+=======
+	jobMgmt.set_job_status(event.job_id, 'error')
+>>>>>>> dcc0d62b94481665770b0c44526a3d83a07b5115
 
 
 def missed_job_listener(event):
