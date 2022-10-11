@@ -1,6 +1,12 @@
 import sys
 import argparse
 
+def main(*args, **kwargs):
+   open(f'{kwargs["file_name"]}.json', 'w')
+
 if __name__ == '__main__':
-	parameter_dict = sys.argv[1]
-	open(f'{parameter_dict["file_name"]}.json', 'w')
+		
+	main(**dict(arg.split('=') for arg in sys.argv[1:]))
+
+
+	

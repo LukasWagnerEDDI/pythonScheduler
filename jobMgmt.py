@@ -1,11 +1,14 @@
 import sys
-
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from datetime import datetime
 import json
 import dateConversion
 import os
+import redis
+
+import subprocess
+from subprocess import Popen
 
 scheduled_jobs = {}
 last_job_file_change = os.stat('jobs.json')
@@ -51,12 +54,22 @@ def execute_job(job):
     refresh_run_timestamp(job["id"])
     set_job_status(job["id"], "running")
     if '' != job["run_script"]:
+        
+        
         """create list of given parameters"""
-        if len(job["script_parameters"]) != 0:
+        """if len(job["script_parameters"]) != 0:
             parameter_dict = job["script_parameters"]
             sys.argv = (job['run_script'], parameter_dict)
+        exec(open(job["run_script"]).read())"""
 
-        exec(open(job["run_script"]).read())
+        params = ["python", job["run_script"]]
+        params.extend(
+            #[val for key, val in job["script_parameters"].items() if val != ""]
+            [f'{key}={val}' for key, val in job['script_parameters'].items() if val != ""]
+        )
+        subprocess.call(params)
+
+
 
     """set finished or success status"""
     jobs_l = retrieve_jobs_to_schedule()
@@ -65,6 +78,10 @@ def execute_job(job):
         set_job_status(job["id"], "success")
     else:
         set_job_status(job["id"], "finished")
+
+
+def retrieve_jobs_from_redis():
+    """check if file was changed"""
 
 
 def retrieve_jobs_to_schedule():
