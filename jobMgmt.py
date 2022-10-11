@@ -10,6 +10,8 @@ import redis
 import subprocess
 from subprocess import Popen
 
+redisConn = redis.StrictRedis(host='localhost', port=6379, db=0)
+
 scheduled_jobs = {}
 last_job_file_change = os.stat('jobs.json')
 last_job_file_change = datetime.fromtimestamp(last_job_file_change.st_mtime)
@@ -81,7 +83,12 @@ def execute_job(job):
 
 
 def retrieve_jobs_from_redis():
-    """check if file was changed"""
+    jobs_dict = {}
+    info_keys = redisConn.keys('*.info')
+    for info_key in info_keys:
+        jobs_dict[f'{info_key.split(".",1)[0]}'] = json.loads(redisConn.hget('apscheduler.jobs', info_key))
+
+    return jobs_dict
 
 
 def retrieve_jobs_to_schedule():
@@ -134,11 +141,13 @@ def update_job_if_applicable(job, scheduler_p):
 def add_job_to_scheduler(job, scheduler_p):
     job_l = Job(job)
     if job['cron_expression'] != '':
-          new_job = scheduler_p.add_job(job_l.execute, CronTrigger.from_crontab(job['cron_expression']), id=str(job['id']), coalesce=True, misfire_grace_time=86400)
-          job['next_execution_time'] = new_job.next_run_time
+        new_job = scheduler_p.add_job(job_l.execute, CronTrigger.from_crontab(job['cron_expression']), id=str(job['id']), coalesce=True, misfire_grace_time=86400)
+        job['next_execution_time'] = new_job.next_run_time
+        redisConn.hset('apscheduler.jobs', f'{str(job["id"])}.info', json.dumps(job, default=str))
     elif job['execution_datetime'] != '':
         new_job = scheduler_p.add_job(job_l.execute, DateTrigger(dateConversion.initialize_datetime_from_string(job['execution_datetime']), timezone='UTC'), id=str(job['id']), coalesce=True, misfire_grace_time=86400)
         job['next_execution_time'] = new_job.next_run_time
+        redisConn.hset('apscheduler.jobs', f'{str(job["id"])}.info', json.dumps(job, default=str))
 
 
 def reschedule_job(job_id, epoch_time):
@@ -164,6 +173,9 @@ def remove_job(job_id, scheduler_p, silent):
     """remove job from cached jobs"""
     if job_id in scheduled_jobs:
         scheduled_jobs.pop(job_id)
+
+    """if redisConn.hexists("apscheduler.jobs", f'{job_id}.info'):
+        redisConn.hdel("apscheduler.jobs", f'{job_id}.info')"""
 
     """print removed job incl. status"""
     if not scheduler_p.get_job(job_id) and (job_id not in scheduled_jobs):
