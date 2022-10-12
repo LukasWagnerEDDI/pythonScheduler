@@ -16,7 +16,10 @@ def error_listener(event):
 	print(f'Job {event.job_id} raised {event.exception.__class__.__name__}')
 
 	"""set job status to error"""
-	#jobMgmt.set_job_status(event.job_id, 'error')
+	if event.job_id == "scheduler-job-id":
+		return
+
+	jobMgmt.set_job_status(event.job_id, 'error')
 
 
 def missed_job_listener(event):
@@ -27,6 +30,7 @@ def missed_job_listener(event):
 	if scheduler.get_job(job_id=event.job_id):
 		job = scheduler.get_job(job_id=event.job_id)
 		print(f'next execution: {job.next_run_time}')
+	jobMgmt.set_job_status(event.job_id, 'missed')
 
 
 """def execution_listener(events):
