@@ -1,3 +1,4 @@
+import logging
 from apscheduler.jobstores.redis import RedisJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, EVENT_JOB_MISSED
@@ -30,6 +31,7 @@ def missed_job_listener(event):
 	if scheduler.get_job(job_id=event.job_id):
 		job = scheduler.get_job(job_id=event.job_id)
 		print(f'next execution: {job.next_run_time}')
+
 	jobMgmt.set_job_status(event.job_id, 'missed')
 
 
@@ -37,6 +39,11 @@ def missed_job_listener(event):
 	print(len(events))"""
 
 if __name__ == '__main__':
+	"""
+	logging.basicConfig()
+	#logging.DEBUG/logging.INFO
+	logging.getLogger('apscheduler').setLevel(logging.INFO)
+	"""
 
 	jobStores = {
 		'default': RedisJobStore(host='127.0.0.1', port=6379)
