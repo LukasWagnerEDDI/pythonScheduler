@@ -6,6 +6,7 @@ from subprocess import *
 import json
 import dateConversion
 import redis
+import io
 
 
 redisConn = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -66,10 +67,12 @@ def execute_job(job):
 			# [val for key, val in job["script_parameters"].items() if val != ""]
 			[f'{key}={val}' for key, val in job['script_parameters'].items() if val != ""]
 		)
-		#subprocess.call(params)
+
 		p = Popen(params, stdout=PIPE, stderr=STDOUT)
 		if p.wait(80) != 0:
-			job['error_message'] = p.stdout.read
+			job['error_message'] = ''
+			for line in io.TextIOWrapper(p.stdout, encoding="utf-8"):  # or another encoding
+				job['error_message'] += line + '\n'
 			print(
 				f'\nscript execution of job {job["id"]} resulted in following error: \n\n returncode: {p.returncode} \n\nerror message: {job["error_message"]}\n\n')
 			adjust_job_property(job['id'], 'error_message', job['error_message'])
