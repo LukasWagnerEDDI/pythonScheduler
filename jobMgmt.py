@@ -1,12 +1,12 @@
 import sys
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
-from datetime import datetime
+from datetime import datetime,timedelta
+from subprocess import *
 import json
 import dateConversion
 import redis
 
-import subprocess
 
 redisConn = redis.StrictRedis(host='localhost', port=6379, db=0)
 
@@ -32,6 +32,9 @@ def schedule_jobs(scheduler_p):
 			continue
 
 		job = jobs[key]
+
+		"""skip running job"""
+
 		"""skip finished job"""
 		if job["status"] in ["finished", "error", "missed"]:
 			remove_job(job['id'], scheduler_p, False)
@@ -46,11 +49,16 @@ def schedule_jobs(scheduler_p):
 
 
 def execute_job(job):
+	jobs = retrieve_jobs_from_redis()
+	job = jobs[str(job['id'])]
+
 	print("executing job with id: " + str(job['id']))
 	print(datetime.utcnow())
 	"""set readable run timestamp"""
 	refresh_run_timestamp(job["id"])
 	set_job_status(job["id"], "running")
+
+
 	if '' != job["run_script"]:
 		"""create list of given parameters"""
 		params = ["python", job["run_script"]]
@@ -58,7 +66,20 @@ def execute_job(job):
 			# [val for key, val in job["script_parameters"].items() if val != ""]
 			[f'{key}={val}' for key, val in job['script_parameters'].items() if val != ""]
 		)
-		subprocess.call(params)
+		#subprocess.call(params)
+		p = Popen(params, stdout=PIPE, stderr=STDOUT)
+		if p.wait(80) != 0:
+			job['error_message'] = p.stdout.read
+			print(
+				f'\nscript execution of job {job["id"]} resulted in following error: \n\n returncode: {p.returncode} \n\nerror message: {job["error_message"]}\n\n')
+			adjust_job_property(job['id'], 'error_message', job['error_message'])
+			if job['retries'] <= 3:
+				dt = datetime.fromtimestamp(dateConversion.convert_datetime_to_epoch(datetime.now() + timedelta(hours=1)))
+				
+				reschedule_job(job['id'], 'retry', dt.timestamp())  # 3600s : 1h
+				print("\n\n")
+				return 0
+
 
 	"""set finished or success status"""
 	jobs_l = retrieve_jobs_from_redis()
@@ -86,7 +107,7 @@ def retrieve_jobs_from_redis():
 
 def add_job_if_applicable(job, scheduler_p):
 	job_id = str(job['id'])
-	if not scheduler_p.get_job(job_id):
+	if not scheduler_p.get_job(job_id) and not job_id in scheduled_jobs:
 		"""add job to job list cache"""
 		scheduled_jobs[job_id] = job
 		"""add job to schedule"""
@@ -129,13 +150,25 @@ def add_job_to_scheduler(job, scheduler_p):
 	redisConn.hset(redis_job_hash, f'{str(job["id"])}.info', json.dumps(job, default=str))
 
 
-def reschedule_job(job_id, epoch_time):
+def reschedule_job(job_id, new_status, epoch_time):
+	job_id = str(job_id)
 	jobs_l = retrieve_jobs_from_redis()
-	new_cron_expression = dateConversion.convert_epoch_to_cron_expression(epoch_time)
-	if jobs_l[job_id]["cron_expression"] != new_cron_expression:
-		adjust_job_property(job_id, "cron_expression", new_cron_expression)
-		set_job_status(job_id, "requested")
-		print(f'job {job_id} was rescheduled: ')
+
+	old_execution_datetime = jobs_l[job_id]["next_execution_time"]
+	new_execution_datetime = dateConversion.convert_epoch_to_datetime(epoch_time)
+
+	"""code for tasks scheduled by cron expression"""
+	if jobs_l[job_id]["cron_expression"] != "":
+		new_cron_expression = dateConversion.convert_epoch_to_cron_expression(epoch_time)
+		if jobs_l[job_id]["cron_expression"] != new_cron_expression:
+			adjust_job_property(job_id, "cron_expression", new_cron_expression)
+	#"""code for tasks scheduled by date time"""
+	elif jobs_l[job_id]['execution_datetime'] != '':
+		if jobs_l[job_id]['execution_datetime'] != new_execution_datetime:
+			adjust_job_property(job_id, "execution_datetime", new_execution_datetime)
+
+	set_job_status(job_id, new_status)
+	print(f'job {job_id} was rescheduled: {old_execution_datetime} -> {new_execution_datetime}')
 
 
 def remove_job(job_id, scheduler_p, silent):
@@ -150,11 +183,11 @@ def remove_job(job_id, scheduler_p, silent):
 	if scheduler_p.get_job(job_id):
 		scheduler_p.remove_job(job_id)
 	"""remove job from cached jobs"""
-	if job_id in scheduled_jobs:
+	if str(job_id) in scheduled_jobs:
 		scheduled_jobs.pop(job_id)
 
 	"""print removed job incl. status"""
-	if not scheduler_p.get_job(job_id) and (job_id not in scheduled_jobs):
+	if not scheduler_p.get_job(job_id) and (str(job_id) not in scheduled_jobs):
 		jobs_l = retrieve_jobs_from_redis()
 		if not silent:
 			print(f'removed job from schedule: id={job_id} status={jobs_l[job_id]["status"]}')
@@ -175,7 +208,6 @@ def adjust_job_property(job_id, property_name, value):
 	if job_id == "scheduler-job-id":
 		return
 
-	# job_index = 0
 	"""retrieve most recent job list"""
 	jobs_l = retrieve_jobs_from_redis()
 
@@ -184,13 +216,12 @@ def adjust_job_property(job_id, property_name, value):
 	"""set new update timestamp"""
 	jobs_l[job_id]["last_update"] = str(datetime.utcnow())
 	"""increment version"""
-	if property_name not in ["verson", "status", "last_execution_time"]:
+	if property_name not in ["version", "status", "last_execution_time"]:
 		jobs_l[job_id]["version"] = int(jobs_l[job_id]["version"]) + 1
 
-	"""save json"""
-	#f = open("jobs.json", "w")
-	#json.dump(jobs_l, f)
-	#f.close
+	"""increment retry counter"""
+	if (property_name == 'status') and (value == 'retry'):
+		jobs_l[job_id]['retries'] = int(jobs_l[job_id]['retries']) + 1
 
 	redisConn.hset(redis_job_hash, f'{job_id}.info', json.dumps(jobs_l[job_id]))
 

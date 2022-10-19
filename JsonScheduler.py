@@ -53,7 +53,7 @@ if __name__ == '__main__':
 	global scheduler
 	scheduler = BackgroundScheduler(jobstores=jobStores, timezone=utc)
 	"""start every x time interval to process jobs"""
-	job = scheduler.add_job(scheduleJobs, 'interval', replace_existing=True, seconds=5, next_run_time=datetime.utcnow(), id='scheduler-job-id')
+	job = scheduler.add_job(scheduleJobs, 'interval', replace_existing=True, seconds=5, next_run_time=datetime.now(), id='scheduler-job-id')
 	"""Listener for specified events"""
 	scheduler.add_listener(error_listener, EVENT_JOB_ERROR)
 	"""scheduler.add_listener(execution_listener, EVENT_JOB_EXECUTED)"""
