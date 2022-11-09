@@ -75,7 +75,7 @@ def execute_job(job):
 
         try:
             """run script"""
-            p = Popen(params, stdout=PIPE, stderr=STDOUT)
+            p = Popen(params, shell=True, stdout=PIPE, stderr=STDOUT)
             """evaluate subprocess' output"""
             if p.returncode != 0: #returncode 0 = processed without exception
                 """save output of subprocess & raise error"""
