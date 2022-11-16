@@ -1,4 +1,5 @@
 import os
+from redisMgmt import *
 from jobMgmt import *
 
 last_job_file_change = os.stat('jobs.json')
